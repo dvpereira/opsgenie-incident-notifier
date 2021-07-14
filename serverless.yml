@@ -1,0 +1,58 @@
+service: sls-typescript-incident-notifier
+
+plugins:
+  - serverless-dotenv-plugin
+
+frameworkVersion: ">=1.1.0 <=2.49.0"
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: us-east-1
+  environment:
+    SLACK_TOKEN: ${env:SLACK_TOKEN}
+    SLACK_CHANNEL_ID: ${env:SLACK_CHANNEL_ID}
+    OPSGENIE_BASE_URL: ${env:OPSGENIE_BASE_URL}
+    AWS_REGION_DYNAMO : ${env:AWS_REGION_DYNAMO}
+    OPSGENIE_API_KEY: ${env:OPSGENIE_API_KEY}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/Incident"
+
+package:
+  exclude:
+    - "**/*.ts"
+    - "test/**"
+    - "scripts/**"
+    - ".vscode/**"
+    - "*"
+
+functions:
+  http:
+    handler: dist/index.http
+    timeout: 2
+    events:
+      - http: ANY /
+      - http: ANY /{proxy+}
+
+resources:
+  Resources:
+    IncidentDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: incident_id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: incident_id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: Incident
