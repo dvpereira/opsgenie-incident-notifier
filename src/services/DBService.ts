@@ -51,7 +51,6 @@ export default class DBService {
         
         try{
             const response =  await IncidentEntity.get(incident)
-            console.log(`Response from DB: ${response.Item}`)
             return response.Item
         } catch(error) {
             console.log(incident)

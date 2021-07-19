@@ -16,6 +16,7 @@ class SlackService {
         try{
             if (this.shouldNotifyParent(hook)) {
                 console.log('Sending parent message...')
+                console.log(JSON.stringify(hook))
                 await this.sendParent(hook);
             } else if (this.shouldNotifyThread(hook)){
                 console.log('Sending thread message...')
