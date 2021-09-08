@@ -3,7 +3,7 @@ service: sls-typescript-incident-notifier
 plugins:
   - serverless-dotenv-plugin
 
-frameworkVersion: ">=1.1.0 <=2.49.0"
+frameworkVersion: ">=1.1.0 <=2.51.0"
 
 provider:
   name: aws

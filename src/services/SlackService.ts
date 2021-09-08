@@ -12,7 +12,7 @@ const opsGenieController = new OpsGenieService()
 
 class SlackService {
 
-    async notify(hook: Hook) {
+    async notify (hook: Hook) {
         try{
             if (this.shouldNotifyParent(hook)) {
                 console.log('Sending parent message...')
@@ -32,7 +32,7 @@ class SlackService {
         
     }
 
-    async getThreadTs(incident_id: string){
+    async getThreadTs (incident_id: string){
         try {
             console.log(`Trying to get incident: ${incident_id}`)
             let response = await db.getItem(incident_id)
@@ -41,59 +41,66 @@ class SlackService {
         } catch (error) {
             console.error(error)
             console.log(incident_id)
-            throw error
+            return null
         }  
     }
 
-    async sendParent(hook: Hook) {
+    async sendParent (hook: Hook) {
         {
             try{
                 var opsGenieIncident = await opsGenieController.getIncident(hook.alert.details['incident-id'])
 
-                //let tags = new Array()
                 let serviceNames = new Array()
+                //let teamName = ``
 
                 for (const service of opsGenieIncident.data.impactedServices) {
                     const opsGenieService = await opsGenieController.getService(service)
                     //tags.push(opsGenieService.data.tags)
                     serviceNames.push(opsGenieService.data.name)
+                    //teamName = (await opsGenieController.getTeam(opsGenieService.data.teamId)).data.name
                 }
 
-                var res = await slack.chat.postMessage({ 
-                    channel: channel_id,
-                    text: 'New incident has been created',
-                    blocks:[
-                        {
-                            type:"section", text: {
-                                type:'mrkdwn', text:`*New Incident*:\n*<${opsgenieBaseURL}${hook.alert.details['incident-id']}|${hook.alert.tinyId} - ${hook.alert.message}>*`
-                            }
-                        },
-                        {
-                            type:"section", fields: [
-                                {
-                                    type: 'mrkdwn', text: `*Priority:*\n${hook.alert.priority}`
-                                },
-                                {
-                                    type: 'mrkdwn', text: `*Extra Properties:*\n${JSON.stringify(hook.alert.details)}`
-                                },
-                                {
-                                    type: 'mrkdwn', text: `*Team:*\n${hook.alert.team}`
-                                },
-                                {
-                                    type: 'mrkdwn', text: `*Service(s):*\n${serviceNames}`
+                var existing_threadTS = await this.getThreadTs(hook.alert.details['incident-id'])
+                console.log(`Existing Thread_TS ${existing_threadTS}`)
+
+                if(existing_threadTS == null){
+                    var res = await slack.chat.postMessage({ 
+                        channel: channel_id,
+                        text: 'Novo incidente criado:',
+                        blocks:[
+                            {
+                                type:"section", text: {
+                                    type:'mrkdwn', text:`*Novo Incidente*:\n*<${opsgenieBaseURL}${hook.alert.details['incident-id']}|${hook.alert.tinyId} - ${hook.alert.message}>*`
                                 }
-                            ]
-                        }
-                    ],
+                            },
+                            {
+                                type:"section", fields: [
+                                    {
+                                        type: 'mrkdwn', text: `*Prioridade:*\n${hook.alert.priority}`
+                                    },
+                                    {
+                                        type: 'mrkdwn', text: `*Propriedades:*\n${JSON.stringify(hook.alert.details)}`
+                                    },
+                                    {
+                                        type: 'mrkdwn', text: `*Time:*\n${hook.alert.team}`
+                                    },
+                                    {
+                                        type: 'mrkdwn', text: `*Serviço(s):*\n${serviceNames}`
+                                    }
+                                ]
+                            }
+                        ],
+                    }
+                );
+    
+                    if(res.ts) {
+                        console.log(`Parent message has been sent...`)
+                        await db.putItem(hook.alert.details['incident-id'], res.ts)
+                        await this.sendThread(hook, channel_id, res.ts,  `${hook.alert.description || `Thread criada...`}`)
+                        console.log(`Incident has been saved on db...`)
+                    }
                 }
-            );
-
-                if(res.ts) {
-                    console.log(`Parent message has been sent...`)
-                    await db.putItem(hook.alert.details['incident-id'], res.ts)
-                    await this.sendThread(hook, channel_id, res.ts,  `${hook.alert.description || `Incident Thread Created.`}`)
-                    console.log(`Incident has been saved on db...`)
-                }
+               
                     
             } catch(error){
                 console.error(error)
@@ -120,26 +127,26 @@ class SlackService {
         switch (hook.action) {
             case 'Acknowledge': {
                 if(hook.alert.details['incident-alert-type'] == 'Associated') {
-                    message = `Nice! ${hook.alert.username} has acknowledged the Associated alert and is looking at this incident!`
+                    message = `Boa! ${hook.alert.username} já está atuando neste incidente!`
                 } else if(hook.alert.details['incident-alert-type'] == 'Owner') {
-                    message = `Nice! ${hook.alert.username} has acknowledged the Owner alert and is looking at this incident!`
+                    message = `Boa! ${hook.alert.username} já deu Acknowledge no alerta principal!`
                 } else {
-                    message = `Nice! ${hook.alert.username} is already looking at this!`
+                    message = `Boa! ${hook.alert.username} já está atuando neste incidente!`
                 }
                 
                 break;
             }
             case 'AddNote': {
-                message = `${hook.alert.username} posted a note to the incident: "${hook.alert.note}"`
+                message = `${hook.alert.username} postou o seguinte comentário no incidente: "${hook.alert.note}"`
                 break;
             }
             case 'Close': {
                 if(hook.alert.details['incident-alert-type'] == 'Associated') {
-                    message = `${hook.alert.username} has Closed the Associated alert!`
+                    message = `${hook.alert.username} fechou o alerta associado!`
                 } else if(hook.alert.details['incident-alert-type'] == 'Owner') {
-                    message = `${hook.alert.username} has Closed the Owner alert! This incident has been solved!`
+                    message = `${hook.alert.username} fechou o alerta principal!`
                 } else {
-                    message = `Nice job! This incident has been solved!`
+                    message = `Bom trabalho! Este incidente foi resolvido!`
                 }
 
                 break;
@@ -149,20 +156,40 @@ class SlackService {
         
     }
 
-    shouldNotifyParent(hook: Hook): boolean{
+    shouldNotifyParent (hook: Hook): boolean{
 
         return hook.action == 'Create' && 
-            hook.alert.details['incident-alert-type'] == 'Owner' &&
-            hook.alert.details['incident-id'] != null
+            (
+                hook.alert.details['incident-alert-type'] == 'Owner'
+                // || hook.alert.details['incident-alert-type'] == 'Responder'
+            ) &&
+                hook.alert.details['incident-id'] != null &&
+                !this.muteByTags(hook.alert.tags)
     }
 
-    shouldNotifyThread(hook: Hook): boolean{
+    shouldNotifyThread (hook: Hook): boolean{
 
-        return (hook.action == 'Acknowledge' || hook.action == 'AddNote' || hook.action == 'Close') && 
-            (hook.alert.details['incident-alert-type'] == 'Responder' || 
+        return (
+                hook.action == 'Acknowledge' || 
+                hook.action == 'AddNote' || 
+                hook.action == 'Close'
+            ) && 
+            (
+                hook.alert.details['incident-alert-type'] == 'Responder' || 
                 hook.alert.details['incident-alert-type'] == 'Associated' ||
-                hook.alert.details['incident-alert-type'] == 'Owner') &&
-            hook.alert.details['incident-id'] != null
+                hook.alert.details['incident-alert-type'] == 'Owner'
+            ) &&
+                hook.alert.details['incident-id'] != null &&
+                !this.muteByTags(hook.alert.tags)
+    }
+
+    muteByTags (tags: String[]): boolean{
+        for (let tag of tags)
+            if(tag == 'mute'){
+                return true          
+        }
+
+        return false
     }
 }
 

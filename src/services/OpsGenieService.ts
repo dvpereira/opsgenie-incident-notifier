@@ -1,5 +1,6 @@
 import { OpsGenieIncident } from '../interfaces/OpsGenieIncident'
 import { OpsGenieService } from '../interfaces/OpsGenieService'
+import { OpsGenieTeam } from '../interfaces/OpsGenieTeam'
 import HttpClient from './HttpService'
 import { AxiosRequestConfig } from 'axios'
 
@@ -29,6 +30,8 @@ class OpsGenieController extends HttpClient {
 
     public getService = (id: string) => this.instance.get<OpsGenieService>(`services/${id}`)
 
+    public getTeam = (id: string) => this.instance.get<OpsGenieTeam>(`teams/${id}`)
+
   async getOpsGenieIncident(incident_id: string){
       try {
           let opsGenieIncident = await this.getIncident(incident_id)
@@ -47,6 +50,16 @@ class OpsGenieController extends HttpClient {
       } catch (error) {
           console.error(error)
       }
+  }
+
+  async getOpsGenieTeam(team_id: string){
+    try {
+        let opsGenieTeam = await this.getTeam(team_id)
+        console.log(opsGenieTeam.data)
+        return opsGenieTeam
+    } catch (error) {
+        console.error(error)
+    }
   }
 }
 

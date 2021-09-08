@@ -3,7 +3,6 @@ import { configureApp } from './app'
 import { createServer, proxy } from 'aws-serverless-express';
 import { Context } from 'aws-lambda';
 
-//app.express.listen(3333);
 
 const binaryMimeTypes: string[] = [
     // 'application/javascript',
@@ -27,6 +26,8 @@ const binaryMimeTypes: string[] = [
 
 const app = configureApp()
 const server = createServer(app, undefined, binaryMimeTypes)
+
+//server.listen(3333)
 
 export const http = (event:any, context: Context) =>
   proxy(server, event, context)
